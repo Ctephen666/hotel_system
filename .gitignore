@@ -1,0 +1,7 @@
+
+# .gitignore: 忽略 node_modules 和构建文件
+node_modules/
+dist/
+build/
+.env
+*.log

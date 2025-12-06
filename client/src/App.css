@@ -1,0 +1,94 @@
+/* 确保 antd 的 Header 样式正确 */
+.ant-layout-header {
+  background: #001529 !important;
+  padding: 0 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+/* 确保 logo 可见 */
+.logo {
+  color: white !important;
+  font-size: 18px !important;
+  font-weight: bold !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+  white-space: nowrap !important;
+}
+
+/* 重置可能影响显示的样式 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* Header 菜单项样式 */
+.ant-menu-light {
+  background: transparent !important;
+}
+
+.ant-menu-light .ant-menu-item {
+  border-radius: 6px;
+  margin: 0 4px;
+  transition: all 0.3s ease;
+}
+
+.ant-menu-light .ant-menu-item:hover {
+  background: rgba(24, 144, 255, 0.1) !important;
+}
+
+.ant-menu-light .ant-menu-item-selected {
+  background: rgba(24, 144, 255, 0.1) !important;
+}
+
+.ant-menu-light .ant-menu-item-selected a {
+  color: #1890ff !important;
+  font-weight: 600;
+}
+
+.ant-menu-light .ant-menu-item a {
+  color: #595959;
+  transition: color 0.3s ease;
+}
+
+.ant-menu-light .ant-menu-item:hover a {
+  color: #1890ff;
+}
+
+/* 登录按钮样式优化 */
+.ant-btn-primary {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.ant-btn-default {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.ant-btn-default:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .ant-layout-header {
+    padding: 0 20px !important;
+  }
+  
+  .logo {
+    font-size: 16px !important;
+    margin-right: 20px !important;
+  }
+  
+  .ant-menu-horizontal {
+    font-size: 12px !important;
+  }
+}
