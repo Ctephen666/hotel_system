@@ -1,0 +1,23 @@
+{
+    "name": "hotel-ac-server",
+    "version": "1.0.0",
+    "description": "Hotel AC System Backend for Dispatching and Monitoring",
+    "main": "server.js",
+    "type": "module",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "keywords": [
+        "websocket",
+        "scheduler"
+    ],
+    "author": "Ctephen",
+    "license": "ISC",
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.3",
+        "express": "^5.2.1",
+        "mysql2": "^3.15.3",
+        "ws": "^8.18.3"
+    }
+}
