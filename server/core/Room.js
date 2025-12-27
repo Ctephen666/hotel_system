@@ -31,23 +31,28 @@ class Room {
      */
     control(targetTemp, fanSpeed, mode) {
         console.log(`[房间 ${this.roomId}] 控制请求 → T=${targetTemp}, F=${fanSpeed}, M=${mode}`);
-
+    
+        // 1) 更新参数
         this.targetTemp = targetTemp;
         this.fanSpeed = fanSpeed;
         this.mode = mode;
-
+    
         this.hasRequestedRestart = false;
-
-        // 如果正在运行 → 停止后重新申请
-        if (this.status === "running") {
-            console.log(`[房间 ${this.roomId}] 正在运行，先退出服务队列`);
-            this.scheduler.removeRoomFromService(this);
+    
+        // 2) 关键：如果正在运行，不要退出服务队列，不要把自己变成 waiting
+        //    让 Scheduler.requestService() 识别“已在服务队列”并原地更新即可
+        if (this.status !== "running") {
+            this.status = "waiting";
+            const now = Date.now();
+            this.requestStartTime = now;
+            // 第一次进入等待时设置 waitStartTime；若你希望“改参数不重置等待时间”，就不要每次都覆盖
+            if (!this.waitStartTime) this.waitStartTime = now;
         }
-
-        this.status = "waiting";
-        this.requestStartTime = Date.now();
+    
+        // 3) 交给调度器处理
         this.scheduler.requestService(this);
     }
+    
 
     /**
      * ============================

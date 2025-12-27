@@ -43,6 +43,19 @@ class Scheduler {
     requestService(room) {
         console.log(`[调度] 房间 ${room.roomId} 请求服务 (风速:${room.fanSpeed})`);
 
+        const inService = this.serviceQueue.find(r => r.roomId === room.roomId);
+        if (inService) {
+            inService.targetTemp = room.targetTemp;
+            inService.fanSpeed = room.fanSpeed;
+            inService.mode = room.mode;
+            inService.status = 'running';
+
+            console.log(`[调度] 房间 ${room.roomId} 已在服务队列：仅更新参数，不重新排队/不重置运行计时`);
+
+            // 保险：如果等待队列里有人，参数变化后也可以重新评估一次高优先级抢占
+            this.checkHighPriorityPreemption();
+            return;
+        }
         room.status = 'waiting';
 
         // 每次“进入等待队列”都重置等待起点时间，表示开启新一轮 s 秒倒计时
@@ -223,58 +236,63 @@ class Scheduler {
 //     // candidate 则在 startServing() 中重置 serviceStartTime。
 // }
     checkWaitTimeOut() {
+        // 没有等待者 -> 不需要时间片轮转
         if (this.waitQueue.length === 0) return;
+
+        // 服务队列未满 -> 直接 dispatch 就能上机，不需要时间片轮转
         if (this.serviceQueue.length < this.MAX_SERVICE_CAPACITY) return;
 
         const now = Date.now();
-        this.sortWaitQueue(); // 优先级高 + 等得久在前
+
+        // 等待队列排序：优先级高 + 等得久 在前（沿用你已有的排序策略）
+        this.sortWaitQueue();
 
         for (const waiter of this.waitQueue) {
-            const waiterPriority = this.getPriority(waiter.fanSpeed);
-
-            // === 1. 计算真实等待时长（用模拟秒）===
+            // === 1) 计算等待者已等待的“模拟秒数” ===
             const realWaitMs = now - (waiter.waitStartTime || now);
             const waitedSimSec = TimeHelper.getSimulatedSeconds(realWaitMs);
 
-            // 未满足时间片 -> 不动 waitStartTime（关键修复）
+            // 未满时间片 -> 跳过，继续看下一个等待者
+            // 注意：这里不改 waiter.waitStartTime（防止“越检查越重置”等待时间）
             if (waitedSimSec < this.TIME_SLICE_SEC) {
                 continue;
             }
 
-            // 进入时间片条件 -> 现在才重置 waitStartTime（仅成功轮转之后）
-            // 但先不重置，等轮转成功后再重置
-
-            // === 2. 找同优先级服务对象 ===
-            const samePriorityServices = this.serviceQueue.filter(
-                s => this.getPriority(s.fanSpeed) === waiterPriority
+            // === 2) 找到服务队列中“同风速”的候选 victim ===
+            const sameSpeedServices = this.serviceQueue.filter(
+                s => s.fanSpeed === waiter.fanSpeed
             );
 
-            // 没有同优先级可轮转 -> 按策略 2.3 等待继续
-            if (samePriorityServices.length === 0) {
+            // 没有同风速正在服务的房间 -> 这次不轮转（继续等待）
+            if (sameSpeedServices.length === 0) {
                 continue;
             }
 
-            // === 3. 选择服务时长最长的作为替换对象 ===
-            const targetToKick = samePriorityServices.reduce((prev, curr) => {
-                const now2 = Date.now();
-                const prevRun = prev.serviceStartTime ? now2 - prev.serviceStartTime : 0;
-                const currRun = curr.serviceStartTime ? now2 - curr.serviceStartTime : 0;
-                return currRun > prevRun ? curr : prev;
+            // === 3) 选择“连续运行最久”的房间：serviceStartTime 最早者 ===
+            const targetToKick = sameSpeedServices.reduce((prev, curr) => {
+                const tPrev = prev.serviceStartTime ?? Number.POSITIVE_INFINITY;
+                const tCurr = curr.serviceStartTime ?? Number.POSITIVE_INFINITY;
+                return tCurr < tPrev ? curr : prev; // 时间戳越小 -> 越早开始服务 -> 运行越久
             });
 
-            console.log(
-                `[调度] 房间 ${waiter.roomId} 等待满 ${this.TIME_SLICE_SEC} 模拟秒，替换同风速服务最长者 ${targetToKick.roomId}`
+            const victimRunSimSec = TimeHelper.getSimulatedSeconds(
+                now - (targetToKick.serviceStartTime || now)
             );
 
-            // === 4. 执行轮转 ===
+            console.log(
+                `[调度] 房间 ${waiter.roomId} 等待满 ${this.TIME_SLICE_SEC} 模拟秒，` +
+                `轮转同风速(${waiter.fanSpeed})运行最久者 ${targetToKick.roomId} ` +
+                `(已运行≈${victimRunSimSec.toFixed(1)} 模拟秒)`
+            );
+
+            // === 4) 执行轮转/抢占 ===
             this.executePreemption(waiter, targetToKick);
 
-            // === 5. 轮转成功后才更新 waitStartTime（防止饿死）===
-            waiter.waitStartTime = Date.now();
-
-            break; // 一次 tick 只处理一个
+            // 一次 tick 只处理一个轮转，避免连环踢人
+            break;
         }
     }
+
 
     /**
      * 执行抢占动作：踢掉 oldRoom，换上 newRoom
